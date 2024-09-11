@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plant Identifier</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+            background-color: #f0f8f0;
+        }
+        h1 {
+            color: #2c7744;
+        }
+        #imagePreview {
+            max-width: 100%;
+            max-height: 300px;
+            margin: 20px 0;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        #output {
+            margin-top: 20px;
+            text-align: left;
+            white-space: pre-wrap;
+            border: 1px solid #ccc;
+            padding: 15px;
+            min-height: 100px;
+            background-color: white;
+            border-radius: 5px;
+        }
+        button, input[type="file"] {
+            margin: 10px 0;
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        label {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Plant Identifier</h1>
+    <label for="imageInput">Choose an Image</label>
+    <input type="file" id="imageInput" accept="image/*">
+    <br>
+    <button id="identifyBtn" disabled>Identify Plant</button>
+    <br>
+    <img id="imagePreview">
+    <div id="output">Plant description will appear here...</div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "@google/generative-ai": "https://esm.run/@google/generative-ai"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import { GoogleGenerativeAI } from "@google/generative-ai";
+
+        const API_KEY = "AIzaSyDkBP5BWRx0a8KSeECjc9uEau2jb9ViYf4"; // Replace with your actual API key
+        const genAI = new GoogleGenerativeAI(API_KEY);
+
+        let selectedFile = null;
+
+        document.getElementById('imageInput').addEventListener('change', function(event) {
+            selectedFile = event.target.files[0];
+            let reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('imagePreview').src = e.target.result;
+            }
+            reader.readAsDataURL(selectedFile);
+            document.getElementById('identifyBtn').disabled = false;
+        });
+
+        async function fileToGenerativePart(file) {
+            const base64EncodedDataPromise = new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                reader.readAsDataURL(file);
+            });
+
+            return {
+                inlineData: {
+                    data: await base64EncodedDataPromise,
+                    mimeType: file.type
+                },
+            };
+        }
+
+        async function identifyPlant() {
+            try {
+                if (!selectedFile) {
+                    alert('Please select an image first.');
+                    return;
+                }
+
+                document.getElementById("output").textContent = "Identifying plant...";
+                const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
+                const prompt = "Identify this plant and provide detailed information about it, including its common and scientific names, characteristics, care instructions, and any interesting facts.";
+                const imageData = await fileToGenerativePart(selectedFile);
+                const result = await model.generateContent([prompt, imageData]);
+                const response = await result.response;
+                const text = response.text();
+                document.getElementById("output").textContent = text;
+            } catch (error) {
+                console.error("Error identifying plant:", error);
+                document.getElementById("output").textContent = "Error processing image. Please try again.";
+            }
+        }
+
+        document.getElementById("identifyBtn").addEventListener("click", identifyPlant);
+    </script>
+</body>
+</html>
